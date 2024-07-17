@@ -1,14 +1,15 @@
 import streamlit as st
 from dotenv import load_dotenv
-from PyPDF2 import PdfReader, PdfWriter
+from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
-# from langchain_openai import ChatOpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
-from htmlTemplates import css, bot_template, user_template
+from streamlit_chat import message
+
+
 
 
 def extract_text_from_pdf(pdf_docs):
@@ -20,20 +21,6 @@ def extract_text_from_pdf(pdf_docs):
     return text
 
 
-# def get_docs(pdf_docs):
-#     pdf_writer = PdfWriter()
-
-#     for pdf in pdf_docs:
-#         pdf_reader = PdfReader(pdf)
-#         for page in pdf_reader.pages:
-#             pdf_writer.add_page(page)
-
-#     with open('merged.pdf', 'wb') as output_pdf:
-#         pdf_writer.write(output_pdf)
-
-#     return 'merged.pdf'
-
-
 def get_text_chunks(pdf_text):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
@@ -41,7 +28,6 @@ def get_text_chunks(pdf_text):
         length_function=len,
         separators=["\n\n", "\n", ".", " ", ""]
     )
-    # chunks = text_splitter.split_documents()
     chunks = text_splitter.split_text(pdf_text)
     return chunks
 
@@ -51,8 +37,6 @@ def create_vectorstore(text_chunks):
         texts=text_chunks, embedding=OpenAIEmbeddings()
     )
 
-    # retriever = vectorstore.as_retriever()
-    # return retriever
     return vectorstore
 
 
@@ -70,9 +54,6 @@ def create_conversation_chain(vectorstore):
         llm=llm,
         memory=memory,
         retriever=vectorstore.as_retriever(),
-        # verbose=True,
-        # input_key="question",
-        # output_key="answer"
     )
     return conversation_chain
 
@@ -82,19 +63,17 @@ def handle_user_question(user_question):
     # st.write(response)
     st.session_state.chat_history = response['chat_history']
 
-    for i, message in enumerate(st.session_state.chat_history):
+    for i, msg in enumerate(st.session_state.chat_history):
         if i % 2 == 0:
-            st.write(user_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+            message(msg.content, is_user=True, key=str(i) + '_user', avatar_style="initials", seed="Kabir")
         else:
-            st.write(bot_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+            message(msg.content, is_user=False, key=str(i), avatar_style="initials", seed="AI",)
 
 
 
 def main():
     load_dotenv()
     st.set_page_config(page_title='ChatBot', page_icon=':books:')
-
-    st.write(css, unsafe_allow_html=True)
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
@@ -108,8 +87,6 @@ def main():
     if user_question:
         handle_user_question(user_question)
 
-    # st.write(user_template.replace("{{MSG}}", "Hello Robot"), unsafe_allow_html=True)
-    # st.write(bot_template.replace("{{MSG}}", "Hello User"), unsafe_allow_html=True)
 
     with st.sidebar:
         st.subheader('Your documents')
